@@ -1,0 +1,37 @@
+# docker-compose.yml - runs the backend (web) and MySQL (db) together.
+services:
+  db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: notesdb
+      MYSQL_USER: notesuser
+      MYSQL_PASSWORD: notespass
+    volumes:
+      - db_data:/var/lib/mysql
+    # healthcheck lets Compose know when MySQL is truly ready, not just started.
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-prootpass"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  web:
+    # Build from the Dockerfile locally; CI/CD overrides DOCKER_IMAGE to pull from Docker Hub.
+    build: .
+    image: ${DOCKER_IMAGE:-notes-api:local}
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy   # start web only after db is healthy
+    ports:
+      - "5000:5000"
+    environment:
+      DB_HOST: db
+      DB_USER: notesuser
+      DB_PASSWORD: notespass
+      DB_NAME: notesdb
+
+volumes:
+  db_data:
